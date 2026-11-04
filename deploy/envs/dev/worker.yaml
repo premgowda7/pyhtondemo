@@ -1,0 +1,26 @@
+image:
+  repository: worker
+  tag: "0.0.0"            # updated by .github/workflows/release.yml
+
+env:
+  DB_HOST: "{{ .Values.global.db.host }}"
+  DB_NAME: "{{ .Values.global.db.name }}"
+  DB_USER: "{{ .Values.global.db.user }}"
+  DB_SSLMODE: "{{ .Values.global.db.sslmode }}"
+  DB_PASSWORD_FILE: /mnt/secrets-store/db-password
+  POLL_INTERVAL_SECONDS: "2"
+  BATCH_SIZE: "20"
+
+keyVault:
+  enabled: true
+  secrets: [db-password]
+
+service:
+  enabled: false          # no inbound traffic; probes + metrics hit the pod IP directly
+
+networkPolicy:
+  allowFromKong: false
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 4

@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dynakube
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-3"}
+spec:
+  project: platform
+  source: {repoURL: https://github.com/premgowda7/pyhtondemo.git, targetRevision: main, path: deploy/platform/dynatrace}
+  destination: {server: https://kubernetes.default.svc, namespace: dynatrace}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [SkipDryRunOnMissingResource=true]
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}

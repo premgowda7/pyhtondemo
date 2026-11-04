@@ -1,0 +1,14 @@
+# GENERATED-BY: scripts/sync-tf-outputs.sh  (Terraform outputs -> Helm values). Safe to commit: no secrets.
+global:
+  environment: dev
+  imageRegistry: REPLACE_ACR_LOGIN_SERVER
+  tenantId: REPLACE_TENANT_ID
+  keyVaultName: REPLACE_KEY_VAULT_NAME
+  db:
+    host: REPLACE_DB_HOST
+    name: orders
+    user: pgadmin
+    sslmode: require
+  workloadIdentityClientIds:
+    orders-api: REPLACE_ORDERS_API_CLIENT_ID
+    worker: REPLACE_WORKER_CLIENT_ID

@@ -1,0 +1,13 @@
+# Dynatrace operator chart is published as an OCI artifact (public, no credentials).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-dynatrace-oci
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: helm
+  name: dynatrace
+  url: public.ecr.aws/dynatrace
+  enableOCI: "true"

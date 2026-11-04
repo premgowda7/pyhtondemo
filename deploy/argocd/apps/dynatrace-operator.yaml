@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dynatrace-operator
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-4"}
+spec:
+  project: platform
+  source:
+    repoURL: public.ecr.aws/dynatrace      # OCI registry, see bootstrap/repositories.yaml
+    chart: dynatrace-operator
+    targetRevision: 1.11.1
+    helm:
+      releaseName: dynatrace-operator
+      valuesObject:
+        installCRD: true
+        csidriver:
+          enabled: true                    # required for cloudNativeFullStack
+          tolerations:
+            - {key: CriticalAddonsOnly, operator: Exists, effect: NoSchedule}
+  destination: {server: https://kubernetes.default.svc, namespace: dynatrace}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: {limit: 5, backoff: {duration: 10s, factor: 2, maxDuration: 3m}}

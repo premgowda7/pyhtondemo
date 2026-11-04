@@ -1,0 +1,47 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-4"}
+spec:
+  project: platform
+  source:
+    repoURL: https://charts.konghq.com
+    chart: ingress
+    targetRevision: 0.24.0
+    helm:
+      releaseName: kong
+      valuesObject:
+        controller:
+          ingressController:
+            ingressClass: kong
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {memory: 512Mi}
+        gateway:
+          replicaCount: 2
+          proxy:
+            type: LoadBalancer
+            annotations:
+              # Private IP only, in the dedicated ingress subnet. Reached from the hub (App Gateway WAF / Firewall / VPN).
+              service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+              service.beta.kubernetes.io/azure-load-balancer-internal-subnet: snet-ingress
+            externalTrafficPolicy: Local   # preserve client IP for rate limiting / logs
+          podDisruptionBudget: {enabled: true, minAvailable: 1}
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {memory: 1Gi}
+          podAnnotations:
+            metrics.dynatrace.com/scrape: "true"
+            metrics.dynatrace.com/port: "8100"
+            metrics.dynatrace.com/path: /metrics
+          env:
+            proxy_access_log: /dev/stdout
+            proxy_error_log: /dev/stderr
+            headers: "off"               # don't advertise Kong version (Server / Via headers)
+  destination: {server: https://kubernetes.default.svc, namespace: kong}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry: {limit: 5, backoff: {duration: 10s, factor: 2, maxDuration: 3m}}

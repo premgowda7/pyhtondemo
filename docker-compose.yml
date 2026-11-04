@@ -1,0 +1,54 @@
+# Local dev stack - mirrors the AKS traffic flow:  browser -> Kong -> web / orders-api -> Postgres <- worker
+# Usage: make up   (then open http://localhost:8000)
+name: orders-platform
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  DB_NAME: orders
+  DB_USER: orders
+  DB_PASSWORD: local-only-password   # local only - in AKS the password comes from Key Vault via CSI
+  DB_SSLMODE: disable
+  LOG_LEVEL: INFO
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: orders
+      POSTGRES_PASSWORD: local-only-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orders -d orders"]
+      interval: 3s
+      retries: 20
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  orders-api:
+    build: ./services/orders-api
+    environment: *db-env
+    depends_on: { postgres: { condition: service_healthy } }
+
+  worker:
+    build: ./services/worker
+    environment: *db-env
+    depends_on: { orders-api: { condition: service_started } }
+    restart: on-failure   # table is created by orders-api on first start
+
+  web:
+    build: ./services/web
+    environment: { ENVIRONMENT: local }
+
+  kong:
+    image: kong:3.8
+    environment:
+      KONG_DATABASE: "off"                      # DB-less, same as Kong Ingress Controller in AKS
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 127.0.0.1:8001         # admin API never exposed
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+    volumes: [./local/kong.yml:/kong/kong.yml:ro]
+    ports: ["8000:8000"]
+    depends_on: [web, orders-api]
+
+volumes:
+  pgdata:

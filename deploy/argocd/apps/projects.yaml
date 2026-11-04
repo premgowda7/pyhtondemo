@@ -1,0 +1,36 @@
+# platform: cluster-wide components (CRDs, webhooks, DaemonSets) - owned by the platform team.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-10"}
+spec:
+  description: Shared platform services (Kong, Dynatrace, namespaces)
+  sourceRepos:
+    - https://github.com/premgowda7/pyhtondemo.git
+    - https://charts.konghq.com
+    - public.ecr.aws/dynatrace
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: kong}
+    - {server: https://kubernetes.default.svc, namespace: dynatrace}
+    - {server: https://kubernetes.default.svc, namespace: orders}
+  clusterResourceWhitelist:
+    - {group: "*", kind: "*"}
+---
+# orders-apps: application teams. Namespaced resources in 'orders' only - cannot touch cluster-scoped objects.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: orders-apps
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-10"}
+spec:
+  description: Orders platform microservices
+  sourceRepos: [https://github.com/premgowda7/pyhtondemo.git]
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: orders}
+  clusterResourceWhitelist: []
+  namespaceResourceBlacklist:
+    - {group: "", kind: ResourceQuota}
+    - {group: "", kind: LimitRange}

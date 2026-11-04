@@ -1,0 +1,85 @@
+# Values shared across services (set once per environment in deploy/envs/<env>/global.yaml)
+global:
+  environment: dev
+  imageRegistry: ""            # e.g. acrordersdevab12.azurecr.io
+  tenantId: ""
+  keyVaultName: ""
+  db: {host: "", name: orders, user: "", sslmode: require}
+  # serviceName -> user-assigned managed identity client ID (from Terraform outputs)
+  workloadIdentityClientIds: {}
+
+nameOverride: ""
+
+image:
+  repository: ""               # e.g. orders-api  (registry comes from global.imageRegistry)
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+containerPort: 8080
+
+# Plain env vars. Values are rendered with `tpl`, so they can reference .Values.global.*
+env: {}
+
+serviceAccount:
+  create: true
+  # Overrides global.workloadIdentityClientIds[<name>]
+  workloadIdentityClientId: ""
+
+# Azure Key Vault -> Secrets Store CSI driver (AKS add-on) using workload identity.
+# Secrets are mounted as files under mountPath; no Kubernetes Secret object is created.
+keyVault:
+  enabled: false
+  mountPath: /mnt/secrets-store
+  secrets: []                  # Key Vault secret names, e.g. [db-password]
+
+service:
+  enabled: true
+  port: 80
+
+probes:
+  liveness: {path: /healthz, initialDelaySeconds: 5, periodSeconds: 10, failureThreshold: 3}
+  readiness: {path: /readyz, initialDelaySeconds: 3, periodSeconds: 5, failureThreshold: 3}
+
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 256Mi}
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Dynatrace scrapes Prometheus endpoints from these annotations
+# (enable "Monitor annotated Prometheus exporters" in Dynatrace Kubernetes settings).
+metrics:
+  enabled: true
+  path: /metrics
+
+networkPolicy:
+  enabled: true
+  allowFromKong: true          # only Kong's namespace may call this service
+  kongNamespace: kong
+  monitoringNamespace: dynatrace
+
+ingress:
+  enabled: false
+  className: kong
+  host: ""
+  paths: [{path: /, pathType: Prefix}]
+  annotations: {}
+
+# Kong plugins created next to the Ingress and attached via konghq.com/plugins
+kongPlugins: {}
+#  rate-limit:
+#    plugin: rate-limiting
+#    config: {minute: 120, policy: local}
+
+nodeSelector: {}
+tolerations: []
+podAnnotations: {}

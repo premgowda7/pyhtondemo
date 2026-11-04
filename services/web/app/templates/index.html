@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-api="{{ api }}">
+  <header><h1>{{ title }}</h1><span class="env">{{ env }}</span></header>
+  <main>
+    <form id="order-form">
+      <input name="item" placeholder="Item" maxlength="100" required>
+      <input name="quantity" type="number" min="1" max="1000" value="1" required>
+      <button type="submit">Place order</button>
+    </form>
+    <p id="message" role="status"></p>
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Status</th></tr></thead>
+      <tbody id="orders"></tbody>
+    </table>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

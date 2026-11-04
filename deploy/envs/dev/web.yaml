@@ -1,0 +1,14 @@
+image:
+  repository: web
+  tag: "0.0.0"            # updated by .github/workflows/release.yml
+
+env:
+  ENVIRONMENT: "{{ .Values.global.environment }}"
+
+ingress:
+  enabled: true
+  paths: [{path: /, pathType: Prefix}]
+
+resources:
+  requests: {cpu: 50m, memory: 96Mi}
+  limits: {cpu: 250m, memory: 192Mi}

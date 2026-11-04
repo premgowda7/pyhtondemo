@@ -1,0 +1,20 @@
+# Accepted risks are listed explicitly so every exception is reviewed in a PR.
+skip-check:
+  - CKV_AZURE_117   # AKS disk encryption set (CMK) - platform-managed keys accepted for dev
+  - CKV_AZURE_226   # AKS ephemeral OS disks - VM size dependent, decided per environment
+  - CKV_AZURE_168   # AKS max_pods >= 50 - default (250 with overlay) is used
+  - CKV_AZURE_41    # Key Vault secret expiration - db-password rotation handled by runbook
+  - CKV_AZURE_136   # Postgres geo-redundant backups - dev only; enabled via variable in prod
+  - CKV_AZURE_233   # ACR zone redundancy - region dependent
+  - CKV_AZURE_237   # ACR dedicated data endpoints - enabled; check is a false positive on some versions
+  - CKV_K8S_43      # image digest pinning - GitOps pins immutable SHA tags
+  - CKV2_K8S_6      # NetworkPolicy - provided per-namespace (deploy/platform/namespaces)
+  - CKV_DOCKER_2    # Dockerfile HEALTHCHECK - Kubernetes liveness/readiness probes are used instead
+  - CKV_K8S_15      # imagePullPolicy Always - tags are immutable git SHAs, IfNotPresent is correct
+  - CKV_AZURE_164   # ACR content trust (DCT) - deprecated by Microsoft; use Notation/cosign signing instead
+  - CKV_AZURE_165   # ACR geo-replication - single-region dev environment
+  - CKV_AZURE_166   # ACR quarantine - images are gated by Trivy in CI before promotion
+  - CKV_AZURE_4     # AKS Azure Monitor logging - Dynatrace is the observability platform (see docs: control-plane audit logs)
+  - CKV_AZURE_189   # Key Vault public access - disabled by default; only opened when management_ip_ranges is set
+  - CKV2_AZURE_32   # Key Vault private endpoint - exists (module pe_kv); checkov cannot follow module outputs
+  - CKV2_AZURE_57   # Postgres private endpoint - exists (module pe_postgres); same false positive

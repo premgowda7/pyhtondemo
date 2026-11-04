@@ -1,0 +1,105 @@
+# Terraform: plan on PR (posted as a comment), apply on main after manual approval.
+# Auth: GitHub OIDC -> Entra ID federated credential. No client secrets stored anywhere.
+name: terraform
+
+on:
+  pull_request:
+    paths: ["infra/terraform/**", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/terraform/**", ".github/workflows/terraform.yml"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write        # request the OIDC token
+  contents: read
+  pull-requests: write   # plan comment
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false   # never kill a running apply (state lock / partial changes)
+
+env:
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VERSION: 1.9.8
+  WORKDIR: infra/terraform/envs/dev
+
+jobs:
+  plan:
+    if: vars.AZURE_CLIENT_ID != ''   # skipped until scripts/bootstrap-azure.sh has been run
+    # Private endpoints: the runner must be inside (or peered to) the hub VNet once public access is closed.
+    runs-on: ${{ vars.PRIVATE_RUNNER_LABEL || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    outputs:
+      has_changes: ${{ steps.plan.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - name: fmt
+        run: terraform fmt -check -recursive ../..
+      - name: init
+        run: terraform init -backend-config=backend.hcl
+      - name: validate
+        run: terraform validate
+      - name: plan
+        id: plan
+        run: |
+          set +e
+          terraform plan -lock-timeout=5m -detailed-exitcode -out=tfplan
+          code=$?
+          set -e
+          [ $code -eq 1 ] && exit 1
+          echo "has_changes=$([ $code -eq 2 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          terraform show -no-color tfplan > plan.txt
+          { echo '### Terraform plan (dev)'; echo '```'; grep -E '^Plan:|No changes' plan.txt || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('${{ env.WORKDIR }}/plan.txt', 'utf8');
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated, see workflow logs)';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number,
+              body: `#### Terraform plan - dev\n<details><summary>Show plan</summary>\n\n\`\`\`hcl\n${plan}\n\`\`\`\n</details>`
+            });
+      - name: Upload plan
+        if: github.event_name != 'pull_request' && steps.plan.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-dev
+          path: ${{ env.WORKDIR }}/tfplan
+          retention-days: 1   # the plan file can contain sensitive values
+
+  apply:
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.plan.outputs.has_changes == 'true'
+    runs-on: ${{ vars.PRIVATE_RUNNER_LABEL || 'ubuntu-latest' }}
+    environment: dev   # configure "Required reviewers" on this environment = approval gate
+    defaults:
+      run:
+        working-directory: ${{ env.WORKDIR }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - run: terraform init -backend-config=backend.hcl
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan-dev
+          path: ${{ env.WORKDIR }}
+      - name: apply (exactly the reviewed plan)
+        run: terraform apply -lock-timeout=5m tfplan

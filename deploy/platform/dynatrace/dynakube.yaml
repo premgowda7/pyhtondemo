@@ -1,0 +1,27 @@
+# DynaKube v1beta6 (Dynatrace Operator 1.11.x). Based on the operator's cloudNativeFullStack sample.
+# Prerequisite (NOT in Git): Secret "dynakube" in namespace dynatrace with keys apiToken + dataIngestToken.
+# scripts/bootstrap-cluster.sh creates it from Key Vault.
+apiVersion: dynatrace.com/v1beta6
+kind: DynaKube
+metadata:
+  name: dynakube
+  namespace: dynatrace
+spec:
+  apiUrl: https://REPLACE_ENVIRONMENT_ID.live.dynatrace.com/api
+  metadataEnrichment:
+    enabled: true            # adds k8s workload/namespace metadata to traces, logs, metrics
+  oneAgent:
+    cloudNativeFullStack:    # host + process + code-level (PurePaths) for every pod, logs included
+      tolerations:
+        # AKS system pool is tainted (only_critical_addons_enabled) - monitor those nodes too.
+        - {key: CriticalAddonsOnly, operator: Exists, effect: NoSchedule}
+        - {key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule}
+  activeGate:
+    capabilities:
+      - routing              # OneAgents send data via the in-cluster ActiveGate (single egress point)
+      - kubernetes-monitoring
+      - dynatrace-api
+    replicas: 1
+    resources:
+      requests: {cpu: 200m, memory: 6Gi}   # Dynatrace sizing guidance; tune for your cluster size
+      limits: {cpu: 1000m, memory: 6Gi}

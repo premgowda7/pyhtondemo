@@ -1,0 +1,27 @@
+image:
+  repository: orders-api
+  tag: "0.0.0"            # updated by .github/workflows/release.yml
+
+env:
+  DB_HOST: "{{ .Values.global.db.host }}"
+  DB_NAME: "{{ .Values.global.db.name }}"
+  DB_USER: "{{ .Values.global.db.user }}"
+  DB_SSLMODE: "{{ .Values.global.db.sslmode }}"
+  DB_PASSWORD_FILE: /mnt/secrets-store/db-password
+  LOG_LEVEL: INFO
+
+keyVault:
+  enabled: true
+  secrets: [db-password]
+
+ingress:
+  enabled: true
+  paths: [{path: /api, pathType: Prefix}]
+
+kongPlugins:
+  orders-api-rate-limit:
+    plugin: rate-limiting
+    config: {minute: 300, policy: local, limit_by: ip}
+  orders-api-request-size:
+    plugin: request-size-limiting
+    config: {allowed_payload_size: 1, size_unit: kilobytes}

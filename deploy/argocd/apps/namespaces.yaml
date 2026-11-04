@@ -1,0 +1,12 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: namespaces
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-5"}
+spec:
+  project: platform
+  source: {repoURL: https://github.com/premgowda7/pyhtondemo.git, targetRevision: main, path: deploy/platform/namespaces}
+  destination: {server: https://kubernetes.default.svc}
+  syncPolicy:
+    automated: {prune: false, selfHeal: true}   # never auto-delete a namespace
