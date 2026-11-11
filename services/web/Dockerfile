@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
 # ---- build stage: install deps into an isolated prefix ----
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /src
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- runtime stage: no compilers, no pip cache, non-root ----
-FROM python:3.12-slim
+FROM python:3.15-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app
