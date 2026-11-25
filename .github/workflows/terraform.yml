@@ -40,8 +40,8 @@ jobs:
     outputs:
       has_changes: ${{ steps.plan.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -64,7 +64,7 @@ jobs:
           { echo '### Terraform plan (dev)'; echo '```'; grep -E '^Plan:|No changes' plan.txt || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -76,7 +76,7 @@ jobs:
             });
       - name: Upload plan
         if: github.event_name != 'pull_request' && steps.plan.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tfplan-dev
           path: ${{ env.WORKDIR }}/tfplan
@@ -91,13 +91,13 @@ jobs:
       run:
         working-directory: ${{ env.WORKDIR }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
       - run: terraform init -backend-config=backend.hcl
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tfplan-dev
           path: ${{ env.WORKDIR }}
